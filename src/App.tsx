@@ -138,6 +138,7 @@ async function callClaude(userMsg, system) {
     headers: {
       "Content-Type": "application/json",
       "anthropic-dangerous-direct-browser-access": "true",
+      "x-api-key": import.meta.env.VITE_ANTHROPIC_KEY || "",
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
