@@ -295,93 +295,31 @@ function IngredientPicker({ food, onAdd, onClose }) {
 }
 
 function NewFoodForm({ onSave, onCancel }) {
-  const [mode, setMode] = useState("ingredients");
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("🍽️");
-  const [ingredients, setIngredients] = useState([{ name: "", g: "" }]);
   const [macros, setMacros] = useState({ calories: "", protein: "", carbs: "", fat: "", fibre: "", sugar: "" });
-  const [calcHighlight, setCalcHighlight] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const inp = { background: "#fff", border: `1px solid ${C.border}`, borderRadius: 9, padding: "10px 12px", color: C.text, fontSize: 13, outline: "none", fontFamily: "'Outfit',sans-serif" };
-
-  const addIngredient = () => setIngredients(prev => [...prev, { name: "", g: "" }]);
-  const updateIngredient = (i, field, val) => setIngredients(prev => prev.map((ing, idx) => idx === i ? { ...ing, [field]: val } : ing));
-  const removeIngredient = (i) => setIngredients(prev => prev.filter((_, idx) => idx !== i));
-
-  const calculateMacros = async () => {
-    const valid = ingredients.filter(i => i.name && i.g);
-    if (!valid.length) { setError("Add at least one ingredient with a name and weight."); return; }
-    setError("");
-    setLoading(true);
-    try {
-      const list = valid.map(i => `${i.name}: ${i.g}g`).join(", ");
-      const raw = await callClaude(
-        `Calculate total nutrition for this meal made of these ingredients: ${list}. Return ONLY a raw JSON object with no prose or markdown: {"calories":number,"protein":number,"carbs":number,"fat":number,"fibre":number,"sugar":number}`,
-        "You are a nutrition scientist. Use USDA FoodData Central and EuroFIR as references. Respond with ONLY a raw JSON object — no prose, no markdown, no explanation."
-      );
-      const j = extractJSON(raw);
-      setMacros({
-        calories: String(Math.round(j.calories || 0)),
-        protein:  String(Math.round(j.protein  || 0)),
-        carbs:    String(Math.round(j.carbs    || 0)),
-        fat:      String(Math.round(j.fat      || 0)),
-        fibre:    String(Math.round(j.fibre    || 0)),
-        sugar:    String(Math.round(j.sugar    || 0)),
-      });
-      setCalcHighlight(true);
-      setTimeout(() => setCalcHighlight(false), 2500);
-    } catch (e) {
-      setError(`Calculation failed: ${e.message}. Please check your ingredients and try again.`);
-    } finally { setLoading(false); }
-  };
 
   const handleSave = () => {
     if (!name || !macros.calories) return;
-    const totalG = ingredients.filter(i => i.g).reduce((s, i) => s + +i.g, 0);
     const food = {
-      id: `custom_${Date.now()}`, name, emoji,
-      refG: totalG || 100,
+      id: `custom_${Date.now()}`, name, emoji, refG: 100,
       calories: +macros.calories, protein: +macros.protein || 0,
       carbs: +macros.carbs || 0, fat: +macros.fat || 0,
       fibre: +macros.fibre || 0, sugar: +macros.sugar || 0,
-      ingredients: mode === "ingredients" ? ingredients.filter(i => i.name && i.g).map(i => ({ name: i.name, g: +i.g })) : [],
+      ingredients: [],
     };
     onSave(food);
   };
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 14, background: C.bg, borderRadius: 10, padding: 4 }}>
-        {[["ingredients", "🧪 By Ingredients"], ["manual", "✏️ Manual Macros"]].map(([id, lbl]) => (
-          <button key={id} onClick={() => setMode(id)} style={{ flex: 1, padding: "8px", borderRadius: 7, border: "none", background: mode === id ? C.accent : "transparent", color: mode === id ? "#fff" : C.muted, cursor: "pointer", fontSize: 13, fontWeight: mode === id ? 700 : 400, fontFamily: "'Outfit',sans-serif" }}>
-            {lbl}
-          </button>
-        ))}
-      </div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>✏️ Add Food Manually</div>
       <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
         <EmojiPicker value={emoji} onChange={setEmoji} />
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Food name" style={{ ...inp, flex: 1 }} />
       </div>
-      {mode === "ingredients" && (
-        <>
-          {ingredients.map((ing, i) => (
-            <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
-              <input value={ing.name} onChange={e => updateIngredient(i, "name", e.target.value)} placeholder="Ingredient" style={{ ...inp, flex: 1 }} />
-              <input value={ing.g} onChange={e => updateIngredient(i, "g", e.target.value)} placeholder="g" type="number" style={{ ...inp, width: 70 }} />
-              {ingredients.length > 1 && <button onClick={() => removeIngredient(i)} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 16 }}>✕</button>}
-            </div>
-          ))}
-          <button onClick={addIngredient} style={{ background: "none", border: `1px dashed ${C.border}`, borderRadius: 9, padding: "8px", color: C.muted, fontSize: 13, cursor: "pointer", width: "100%", marginBottom: 10, fontFamily: "'Outfit',sans-serif" }}>
-            + Add Ingredient
-          </button>
-          {error && <div style={{ background: "#ff475715", border: `1px solid #ff4757`, borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#ff4757", marginBottom: 8 }}>{error}</div>}
-          <button onClick={calculateMacros} disabled={loading} style={{ background: loading ? C.border : C.accent, border: "none", borderRadius: 9, padding: "10px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: loading ? "default" : "pointer", width: "100%", marginBottom: 12, fontFamily: "'Outfit',sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-            {loading ? <><Spinner color="#fff" /> Calculating…</> : "⚡ Calculate via USDA/EuroFIR"}
-          </button>
-        </>
-      )}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 12, background: calcHighlight ? "#eef3ff" : "transparent", borderRadius: 9, padding: calcHighlight ? 8 : 0, transition: "all .3s" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 12 }}>
         {["calories","protein","carbs","fat","fibre","sugar"].map(k => (
           <input key={k} value={macros[k]} onChange={e => setMacros(m => ({ ...m, [k]: e.target.value }))}
             placeholder={k.charAt(0).toUpperCase() + k.slice(1) + (k === "calories" ? " (kcal)" : " (g)")}
